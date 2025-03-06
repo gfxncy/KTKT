@@ -142,6 +142,7 @@ assert(len(tetrsNodesTags) % 4 == 0)
 
 # TODO: неплохо бы полноценно данные сетки проверять, да
 
+print('AAAAAAAA')
 mesh = CalcMesh(nodesCoord, tetrsNodesTags)
 mesh.snapshot(0)
 
