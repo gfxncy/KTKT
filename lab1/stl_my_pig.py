@@ -36,7 +36,7 @@ f = gmsh.model.mesh.field.add("MathEval")
 gmsh.model.mesh.field.setString(f, "F", "4")
 gmsh.model.mesh.field.setAsBackgroundMesh(f)
 
-gmsh.model.mesh.generate(4)
+gmsh.model.mesh.generate(3)
 gmsh.write('lab1/pig.msh')
 
 # Launch the GUI to see the results:
