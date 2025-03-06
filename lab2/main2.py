@@ -26,7 +26,9 @@ class CalcMesh:
         self.tetrs -= 1
 
     # Метод отвечает за выполнение для всей сетки шага по времени величиной tau
-    def move(self, tau):
+    def move(self, tau, n):
+        omega = 2 * np.pi / (40 * 0.01)
+        self.velocity[2] += 4 * np.cos(0.05 * np.power(self.nodes[0] - self.nodes[1], 2)) * np.cos(omega * n * tau)
         # По сути метод просто двигает все точки c их текущими скоростями
         self.nodes += self.velocity * tau
 
@@ -136,9 +138,12 @@ for i in range(0, len(nodeTags)):
 # И ещё проверим, что в тетраэдрах что-то похожее на правду лежит.
 assert(len(tetrsNodesTags) % 4 == 0)
 
-
 mesh = CalcMesh(nodesCoord, tetrsNodesTags)
+
 mesh.snapshot(0)
+for i in range(1, 120):
+    mesh.move(0.01, i)
+    mesh.snapshot(i)
 
 
 gmsh.finalize()
