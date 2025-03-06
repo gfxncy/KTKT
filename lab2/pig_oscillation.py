@@ -19,6 +19,9 @@ class CalcMesh:
         self.tetrs = np.array([tetrs_points[0::4],tetrs_points[1::4],tetrs_points[2::4],tetrs_points[3::4]])
         self.tetrs -= 1
 
+        #Запишем начальное положение
+        self.initial_nodes = 1 * self.nodes
+
     #Метод поступательного движения
     def move_translation(self, dx, dy, dz):
         self.nodes[0] += dx
@@ -33,6 +36,12 @@ class CalcMesh:
         self.nodes[0] += phi_y * (self.nodes[2] - z_cm) - phi_z * (self.nodes[1] - y_cm)
         self.nodes[1] += phi_z * (self.nodes[0] - x_cm) - phi_x * (self.nodes[2] - z_cm)
         self.nodes[2] += phi_x * (self.nodes[1] - y_cm) - phi_y * (self.nodes[0] - x_cm)
+
+    #Распространение поперечной волны в виде гауссова пакета вдоль оси x
+    def move_gaussian_wave_packet(self, t, v_ph, width):
+        f_t = 1 / np.exp((1 / 2 / width ** 2) * np.power(self.initial_nodes[0] - t * v_ph + v_ph * 40, 2))
+        self.nodes[1] = self.initial_nodes[1] * (1 + f_t)
+        self.nodes[2] = self.initial_nodes[2] * (1 + f_t)
     
     # Метод отвечает за выполнение для всей сетки шага по времени величиной tau
     def move(self, tau, n):
@@ -70,7 +79,7 @@ class CalcMesh:
 
         writer = vtk.vtkXMLUnstructuredGridWriter()
         writer.SetInputDataObject(unstructuredGrid)
-        writer.SetFileName("lab2/pig rotation/pig_rotation-" + str(snap_number) + ".vtu")
+        writer.SetFileName("lab2/pig oscillations/pig_oscillations-" + str(snap_number) + ".vtu")
         writer.Write()
 
 
@@ -128,8 +137,7 @@ mesh = CalcMesh(nodesCoord, tetrsNodesTags)
 
 mesh.snapshot(0)
 for i in range(1, 120):
-    mesh.move_translation(0.5, 0.3, 0)
-    mesh.move_rotation(0.01, 0.03, 0.1)
+    mesh.move_gaussian_wave_packet(i, 0.2, 10)
     mesh.snapshot(i)
 
 
