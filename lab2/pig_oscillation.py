@@ -11,72 +11,66 @@ class CalcMesh:
 
     # Конструктор сетки, полученной из stl-файла
     def __init__(self, nodes_coords, tetrs_points):
-        # 3D-сетка из расчётных точек
-        # Пройдём по узлам в модели gmsh и заберём из них координаты
+
         self.nodes = np.array([nodes_coords[0::3],nodes_coords[1::3],nodes_coords[2::3]])
-
-        # Модельная скалярная величина распределена как-то вот так
         self.smth = np.power(self.nodes[0, :], 2) + np.power(self.nodes[1, :], 2)
-
-        # Тут может быть скорость, но сейчас здесь нули
         self.velocity = np.zeros(shape=(3, int(len(nodes_coords) / 3)), dtype=np.double)
 
-        # Пройдём по элементам в модели gmsh
         self.tetrs = np.array([tetrs_points[0::4],tetrs_points[1::4],tetrs_points[2::4],tetrs_points[3::4]])
         self.tetrs -= 1
 
+    #Метод поступательного движения
+    def move_translation(self, dx, dy, dz):
+        self.nodes[0] += dx
+        self.nodes[1] += dy
+        self.nodes[2] += dz
+
+    #Метод вращательного движения вокруг центра масс
+    def move_rotation(self, phi_x, phi_y, phi_z):
+        x_cm = np.mean(self.nodes[0])
+        y_cm = np.mean(self.nodes[1])
+        z_cm = np.mean(self.nodes[2])
+        self.nodes[0] += phi_y * (self.nodes[2] - z_cm) - phi_z * (self.nodes[1] - y_cm)
+        self.nodes[1] += phi_z * (self.nodes[0] - x_cm) - phi_x * (self.nodes[2] - z_cm)
+        self.nodes[2] += phi_x * (self.nodes[1] - y_cm) - phi_y * (self.nodes[0] - x_cm)
+    
     # Метод отвечает за выполнение для всей сетки шага по времени величиной tau
     def move(self, tau, n):
         omega = 2 * np.pi / (40 * 0.01)
         self.velocity[2] += 4 * np.cos(0.05 * np.power(self.nodes[0] - self.nodes[1], 2)) * np.cos(omega * n * tau)
-        # По сути метод просто двигает все точки c их текущими скоростями
         self.nodes += self.velocity * tau
 
     # Метод отвечает за запись текущего состояния сетки в снапшот в формате VTK
     def snapshot(self, snap_number):
-        # Сетка в терминах VTK
         unstructuredGrid = vtk.vtkUnstructuredGrid()
-        # Точки сетки в терминах VTK
         points = vtk.vtkPoints()
 
-        # Скалярное поле на точках сетки
         smth = vtk.vtkDoubleArray()
         smth.SetName("smth")
 
-        # Векторное поле на точках сетки
         vel = vtk.vtkDoubleArray()
         vel.SetNumberOfComponents(3)
         vel.SetName("vel")
 
-        # Обходим все точки нашей расчётной сетки
-        # Делаем это максимально неэффективным, зато наглядным образом
         for i in range(0, len(self.nodes[0])):
-            # Вставляем новую точку в сетку VTK-снапшота
             points.InsertNextPoint(self.nodes[0,i], self.nodes[1,i], self.nodes[2,i])
-            # Добавляем значение скалярного поля в этой точке
             smth.InsertNextValue(self.smth[i])
-            # Добавляем значение векторного поля в этой точке
             vel.InsertNextTuple((self.velocity[0,i], self.velocity[1,i], self.velocity[2,i]))
 
-        # Грузим точки в сетку
         unstructuredGrid.SetPoints(points)
 
-        # Присоединяем векторное и скалярное поля к точкам
         unstructuredGrid.GetPointData().AddArray(smth)
         unstructuredGrid.GetPointData().AddArray(vel)
 
-        # А теперь пишем, как наши точки объединены в тетраэдры
-        # Делаем это максимально неэффективным, зато наглядным образом
         for i in range(0, len(self.tetrs[0])):
             tetr = vtk.vtkTetra()
             for j in range(0, 4):
                 tetr.GetPointIds().SetId(j, self.tetrs[j,i])
             unstructuredGrid.InsertNextCell(tetr.GetCellType(), tetr.GetPointIds())
 
-        # Создаём снапшот в файле с заданным именем
         writer = vtk.vtkXMLUnstructuredGridWriter()
         writer.SetInputDataObject(unstructuredGrid)
-        writer.SetFileName("tetr3d-step-" + str(snap_number) + ".vtu")
+        writer.SetFileName("lab2/pig rotation/pig_rotation-" + str(snap_number) + ".vtu")
         writer.Write()
 
 
@@ -112,10 +106,9 @@ gmsh.model.mesh.field.setAsBackgroundMesh(f)
 
 gmsh.model.mesh.generate(3)
 
-# Теперь извлечём из gmsh данные об узлах сетки
+# РЕАЛИЗАЦИЯ ДВИЖЕНИЙ
 nodeTags, nodesCoord, parametricCoord = gmsh.model.mesh.getNodes()
 
-# И данные об элементах сетки тоже извлечём, нам среди них нужны только тетраэдры, которыми залит объём
 GMSH_TETR_CODE = 4
 tetrsNodesTags = None
 elementTypes, elementTags, elementNodeTags = gmsh.model.mesh.getElements()
@@ -131,18 +124,12 @@ if tetrsNodesTags is None:
 
 print("The model has %d nodes and %d tetrs" % (len(nodeTags), len(tetrsNodesTags) / 4))
 
-# На всякий случай проверим, что номера узлов идут подряд и без пробелов
-for i in range(0, len(nodeTags)):
-    # Индексация в gmsh начинается с 1, а не с нуля. Ну штош, значит так.
-    assert (i == nodeTags[i] - 1)
-# И ещё проверим, что в тетраэдрах что-то похожее на правду лежит.
-assert(len(tetrsNodesTags) % 4 == 0)
-
 mesh = CalcMesh(nodesCoord, tetrsNodesTags)
 
 mesh.snapshot(0)
 for i in range(1, 120):
-    mesh.move(0.01, i)
+    mesh.move_translation(0.5, 0.3, 0)
+    mesh.move_rotation(0.01, 0.03, 0.1)
     mesh.snapshot(i)
 
 
