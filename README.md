@@ -8,3 +8,5 @@ LAB 2:
 1) Файлы для генерации vtk: lab2/pig oscillation.py, lab2/pig rotation.py
 2) GIF: lab2/pig oscillation.gif, lab2/pig rotation.gif
 3) Файлы vtk в папках lab2/pig oscillations, lab2/pig rotation
+
+Микропроект: https://vkvideo.ru/video-229977205_456239017?list=ln-BvQ3sLzEkb4DdSSHza
